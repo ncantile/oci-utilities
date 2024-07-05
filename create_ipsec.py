@@ -51,6 +51,10 @@ else:
 
 core_client = oci.core.VirtualNetworkClient(oci.config.from_file())
 
+if not ipsecName:
+    print("FATAL: please provide a name for the IPSec connection\n  Use --name")
+    sys.exit(1)
+
 # Checks if there is one and only one routing policy
 if isStatic + isPolicy + isBGP == 0:
     print("FATAL: a routing policy must be specified\n  Choose one among --bgp, --policy, --static")
@@ -142,6 +146,7 @@ if isStatic:
         pass
     else:
         print("FATAL: specify at least a route\n  Use -r")
+        sys.exit(1)
 
 tunnelNames = ["T1-" + ipsecName, "T2-" + ipsecName]
 
