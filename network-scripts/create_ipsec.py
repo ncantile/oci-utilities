@@ -1,4 +1,3 @@
-#Rivedere metodo di login
 #!/bin/python3
 import oci
 import argparse
