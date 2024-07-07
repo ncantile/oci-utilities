@@ -47,3 +47,7 @@ python3 create_ipsec.py -c *Compartment_OCID
 #### TODO
 
 * add the ability to identify the compartment by name
+* refactor the code with some function / using objects instead of copying the same create_ipsec thing more times
+* print some information at the end
+* wait for the ipsec to complete creation (add some retry and check the lifecycle of the object)
+* output the ipsec configuration
