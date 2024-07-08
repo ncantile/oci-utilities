@@ -436,10 +436,23 @@ else:
 
 # Get the data from response
 ipsecOCID = create_ip_sec_connection_response.data.id
+ipsecInfo = virtual_network_client.get_ip_sec_connection(ipsecOCID).data
 
 #Check the lifecycle state of the ipsec
 for _ in range(1,10):
     #Check the lifecycle state of the ipsec
-    ipsecLifecycle = virtual_network_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
-    print(ipsecLifecycle)
-    time.sleep(10)
+    ipsecLifecycle = ipsecInfo.lifecycle_state
+    if ipsecLifecycle.upper() == 'AVAILABLE':
+        print(f'SUCCESS!\n  IPSec {ipsecName} successfully created.')
+        break
+    elif ipsecLifecycle.upper() == 'PROVISIONING':
+        print(f'IPSec {ipsecName} still in \'provisioning\' state, checking again in 10 seconds...')
+        time.sleep(10)
+    else:
+        print(f'ERROR: IPSec {ipsecName} has some problems, please check manually')
+        sys.exit(1)
+else:
+    print(f'ERROR: IPSec {ipsecName} has some problems, please check manually')
+    sys.exit(1)
+
+print(ipsecInfo)
