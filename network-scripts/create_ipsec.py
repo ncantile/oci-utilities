@@ -434,11 +434,8 @@ else:
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
 
-# Get the data from response
+time.sleep(30)
+
 ipsecOCID = create_ip_sec_connection_response.data.id
 
-ipsecLifecycle = virtual_network_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
-
-print(ipsecLifecycle)
-
-print(ipsecLifecycle)
+ipsecLifecycle = core_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
