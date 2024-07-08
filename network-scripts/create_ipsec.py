@@ -4,6 +4,7 @@ import argparse
 import sys
 import random
 import string
+import time
 
 parser = argparse.ArgumentParser(description="This program creates a Site-to-site IPSec VPN")
 parser.add_argument("--compartment-id", "-c", help="The compartment in which the VPN will be created, specified by its OCID")
@@ -48,40 +49,33 @@ if not args.outside_interface:
 else:
     outsideIP = args.outside_interface
 
+def fatalExit(message) -> None:
+    print(f"FATAL: {message}")
+    sys.exit(1)
+
 core_client = oci.core.VirtualNetworkClient(oci.config.from_file())
 
 if not ipsecName:
-    print("FATAL: please provide a name for the IPSec connection\n  Use --name")
-    sys.exit(1)
+    fatalExit("please provide a name for the IPSec connection\n  Use --name")
 
 # Checks if there is one and only one routing policy
 if isStatic + isPolicy + isBGP == 0:
-    print("FATAL: a routing policy must be specified\n  Choose one among --bgp, --policy, --static")
-    sys.exit(1)
+    fatalExit("a routing policy must be specified\n  Choose one among --bgp, --policy, --static")   
 elif isStatic + isPolicy + isBGP > 1:
-    print("FATAL: only one routing policy must be specified\n  Choose only one among --bgp, --policy, --static")
-    sys.exit(1)
-else:
-    pass
+    fatalExit("only one routing policy must be specified\n  Choose only one among --bgp, --policy, --static")
 
 # Check if two insideIPs and two outsideIPs are specified for dynamic routing. If --best-practices: automatically assign
 if isBGP:
     routingType = "BGP"
     if not asn:
-        print("FATAL: the customer ASN must be specified\n  Use --asn")
-        sys.exit(1)
+        fatalExit("the customer ASN must be specified\n  Use --asn")
     elif (len(insideIP) != 2 or len(outsideIP) != 2) and not isBestPractices:
-        print("FATAL: for dynamic routing, one IP per tunnel must be specified as inside and outside tunnel interfaces\n  Use two -t and two -T calls")
-        sys.exit(1)
+        fatalExit("for dynamic routing, one IP per tunnel must be specified as inside and outside tunnel interfaces\n  Use two -t and two -T calls")
     elif len(insideIP) != 2 and len(outsideIP) != 2 and isBestPractices:
         print("INFO: --best-practices specified, using automatic inside IPs")
         insideIP = ["10.0.1.2/30", "10.0.2.2/30"]
         print("INFO: --best-practices specified, using automatic outside IPs")
         outsideIP = ["10.0.1.1/30", "10.0.2.1/30"]
-    else:
-        pass
-else:
-    pass
 
 #create logic:
 #Get the OCID of the DRG
@@ -93,13 +87,11 @@ if not drgOCID and drgName:
             drgOCID = drg.id
             break
         else:
-            print(f"FATAL: {drgName} not found in the specified compartment")
-            sys.exit(1)
+            fatalExit(f"{drgName} not found in the specified compartment")
 elif drgOCID:
     pass
 else:
-    print("FATAL: DRG not specified.\n  Use either -G or -g")
-    sys.exit(1)
+    fatalExit("DRG not specified.\n  Use either -G or -g")
 
 #Get the OCID of the CPE
 if not cpeOCID and cpeIP:
@@ -110,13 +102,11 @@ if not cpeOCID and cpeIP:
             cpeOCID = cpe.id
             break
         else:
-            print(f"FATAL: No CPE with IP {cpeIP} found in the specified compartment")
-            sys.exit(1)
+            fatalExit(f"No CPE with IP {cpeIP} found in the specified compartment")
 elif cpeOCID:
     pass
 else:
-    print("FATAL: CPE not specified.\n  Use either -E or -e")
-    sys.exit(1)
+    fatalExit("CPE not specified.\n  Use either -E or -e")
 
 
 
@@ -133,8 +123,7 @@ if isPolicy:
     if len(ipsecLocalRoutes) > 0 and len(ipsecRoutes) > 0:
         pass
     else:
-        print("FATAL: both local and remote routes are needed for policy-based routing\n  Use both -r and -R")
-        sys.exit(1)
+        fatalExit("both local and remote routes are needed for policy-based routing\n  Use both -r and -R")
 else:
     pass
 
@@ -144,8 +133,7 @@ if isStatic:
     if len(ipsecRoutes) > 0:
         pass
     else:
-        print("FATAL: specify at least a route\n  Use -r")
-        sys.exit(1)
+        fatalExit("specify at least a route\n  Use -r")
 
 tunnelNames = ["T1-" + ipsecName, "T2-" + ipsecName]
 
@@ -446,5 +434,13 @@ else:
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
 
-# Get the data from response
-print(create_ip_sec_connection_response.data)
+time.sleep(30)
+
+ipsecOCID = create_ip_sec_connection_response.data.id
+ipsecLifecycle = core_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
+if ipsecLifecycle.upper() == 'AVAILABLE':
+    print(f'SUCCESS: IPSec {ipsecName} created.\n  Download the configuration from the OCI console.')
+    sys.exit(0)
+else:
+    print(f'WARNING: There might be some problems creating the IPSec, please check manually.')
+    sys.exit(1)
