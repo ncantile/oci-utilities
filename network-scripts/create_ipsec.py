@@ -437,4 +437,9 @@ else:
 # Get the data from response
 ipsecOCID = create_ip_sec_connection_response.data.id
 
-print(ipsecOCID)
+#Check the lifecycle state of the ipsec
+for _ in range(1,10):
+    #Check the lifecycle state of the ipsec
+    ipsecLifecycle = virtual_network_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
+    print(ipsecLifecycle)
+    time.sleep(10)
