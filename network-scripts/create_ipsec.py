@@ -4,6 +4,7 @@ import argparse
 import sys
 import random
 import string
+import time
 
 parser = argparse.ArgumentParser(description="This program creates a Site-to-site IPSec VPN")
 parser.add_argument("--compartment-id", "-c", help="The compartment in which the VPN will be created, specified by its OCID")
@@ -443,7 +444,7 @@ for _ in range(1,10):
     ipsecLifecycle = ipsecResult.lifecycle_state
     if ipsecLifecycle.upper() == 'PROVISIONING':
         print(f"IPSec {ipsecName} still in provisioning state, checking again in 10 seconds")
-        sleep(10)
+        time.sleep(10)
     elif ipsecLifecycle.upper() == 'AVAILABLE':
         print(f"IPSec {ipsecName} successfully provisioned")
         break
