@@ -437,5 +437,10 @@ else:
 time.sleep(30)
 
 ipsecOCID = create_ip_sec_connection_response.data.id
-
 ipsecLifecycle = core_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
+if ipsecLifecycle.upper() == 'AVAILABLE':
+    print(f'SUCCESS: IPSec {ipsecName} created.\n  Download the configuration from the OCI console.')
+    sys.exit(0)
+else:
+    print(f'WARNING: There might be some problems creating the IPSec, please check manually.')
+    sys.exit(1)
