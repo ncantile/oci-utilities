@@ -86,8 +86,8 @@ if not drgOCID and drgName:
         if drg.display_name == drgName:
             drgOCID = drg.id
             break
-        else:
-            fatalExit(f"{drgName} not found in the specified compartment")
+    else:
+        fatalExit(f"{drgName} not found in the specified compartment")
 elif drgOCID:
     pass
 else:
@@ -101,8 +101,8 @@ if not cpeOCID and cpeIP:
         if cpe.ip_address == cpeIP:
             cpeOCID = cpe.id
             break
-        else:
-            fatalExit(f"No CPE with IP {cpeIP} found in the specified compartment")
+    else:
+        fatalExit(f"No CPE with IP {cpeIP} found in the specified compartment")
 elif cpeOCID:
     pass
 else:
@@ -114,8 +114,6 @@ else:
 if not ipsecRoutes:
     print("WARNING: no routes provided to on-premise: automatically assigning fake route 1.2.3.4/32")
     ipsecRoutes = ["1.2.3.4/32"]
-else:
-    pass
 
 # Check if there are both local and remote routes if the IPSec uses policy-based routing
 if isPolicy:
@@ -124,15 +122,11 @@ if isPolicy:
         pass
     else:
         fatalExit("both local and remote routes are needed for policy-based routing\n  Use both -r and -R")
-else:
-    pass
 
 # Check if there is a route if the IPSec uses static routing
 if isStatic:
     routingType = "STATIC"
-    if len(ipsecRoutes) > 0:
-        pass
-    else:
+    if len(ipsecRoutes) == 0:
         fatalExit("specify at least a route\n  Use -r")
 
 tunnelNames = ["T1-" + ipsecName, "T2-" + ipsecName]
@@ -197,6 +191,7 @@ if isBestPractices:
                         dpd_config=oci.core.models.DpdConfig(
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
+        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isPolicy:
         create_ip_sec_connection_response = core_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
@@ -260,6 +255,7 @@ if isBestPractices:
                         dpd_config=oci.core.models.DpdConfig(
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
+        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isBGP:
         create_ip_sec_connection_response = core_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
@@ -325,6 +321,7 @@ if isBestPractices:
                         dpd_config=oci.core.models.DpdConfig(
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
+        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
 else:
     if isStatic:
         create_ip_sec_connection_response = core_client.create_ip_sec_connection(
@@ -357,6 +354,7 @@ else:
                         dpd_config=oci.core.models.DpdConfig(
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
+        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isPolicy:
         create_ip_sec_connection_response = core_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
@@ -394,6 +392,7 @@ else:
                         dpd_config=oci.core.models.DpdConfig(
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
+        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isBGP:
         create_ip_sec_connection_response = core_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
@@ -433,6 +432,7 @@ else:
                         dpd_config=oci.core.models.DpdConfig(
                             dpd_mode="INITIATE_AND_RESPOND",
                             dpd_timeout_in_sec=20))]))
+        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
 
 time.sleep(30)
 
@@ -444,3 +444,7 @@ if ipsecLifecycle.upper() == 'AVAILABLE':
 else:
     print(f'WARNING: There might be some problems creating the IPSec, please check manually.')
     sys.exit(1)
+
+#Print the actual CPE configuration
+get_ipsec_cpe_device_config_content_response = core_client.get_ipsec_cpe_device_config_content(ipsc_id=ipsecOCID)
+print(get_ipsec_cpe_device_config_content_response.data)
