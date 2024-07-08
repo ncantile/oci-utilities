@@ -457,3 +457,18 @@ else:
 ## Tunnel2 Phase2 Info
 # Secret
 # IKE Version
+
+cpeIP = pass
+
+print ('Below you can find the configuration file. Please provide this file to the networking team entrusted with configuring the actual Customer-Premises equipment.')
+print ('|-------------------|--------------------------------------------------------------------------------|')
+print(f'|{"CPE IP": <30} | {cpeIP: <70}|')
+print(f'|{"IKE version": <30} | {ikeVer: <70}|')
+print(f'|{"Routing Type": <30} | {routingType.replace("POLICY","STATIC"): <70}|')
+print(f'|{"Shared Secret": <30} | {tunnelSecret: <70}|')
+print(f'|{"Tunnel 1": <100}|')
+print(f'|{"Oracle interface IP": <30} | {insideIP[0]: <70}|')
+print(f'|{"CPE interface IP": <30} | {outsideIP[0]: <70}|')
+print(f'|{"Tunnel 2": <100}|')
+print(f'|{"Oracle interface IP": <30} | {insideIP[1]: <70}|')
+print(f'|{"CPE interface IP": <30} | {outsideIP[1]: <70}|')
