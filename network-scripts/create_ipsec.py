@@ -86,8 +86,8 @@ if not drgOCID and drgName:
         if drg.display_name == drgName:
             drgOCID = drg.id
             break
-        else:
-            fatalExit(f"{drgName} not found in the specified compartment")
+    else:
+        fatalExit(f"{drgName} not found in the specified compartment")
 elif drgOCID:
     pass
 else:
@@ -101,8 +101,8 @@ if not cpeOCID and cpeIP:
         if cpe.ip_address == cpeIP:
             cpeOCID = cpe.id
             break
-        else:
-            fatalExit(f"No CPE with IP {cpeIP} found in the specified compartment")
+    else:
+        fatalExit(f"No CPE with IP {cpeIP} found in the specified compartment")
 elif cpeOCID:
     pass
 else:
