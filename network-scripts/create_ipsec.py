@@ -440,11 +440,20 @@ ipsecOCID = create_ip_sec_connection_response.data.id
 ipsecLifecycle = core_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
 if ipsecLifecycle.upper() == 'AVAILABLE':
     print(f'SUCCESS: IPSec {ipsecName} created.\n  Download the configuration from the OCI console.')
-    sys.exit(0)
 else:
     print(f'WARNING: There might be some problems creating the IPSec, please check manually.')
     sys.exit(1)
 
-#Print the actual CPE configuration
-get_ipsec_cpe_device_config_content_response = core_client.get_ipsec_cpe_device_config_content(ipsc_id=ipsecOCID)
-print(get_ipsec_cpe_device_config_content_response.data)
+
+
+#Print:
+# CPE Name/IP
+# DRG Name
+# Tunnel1 Name/IP
+## Tunnel1 Phase1 Info
+## Tunnel1 Phase2 Info
+# Tunnel2 Name/IP
+## Tunnel2 Phase1 Info
+## Tunnel2 Phase2 Info
+# Secret
+# IKE Version
