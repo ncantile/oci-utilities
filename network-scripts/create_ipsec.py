@@ -7,7 +7,8 @@ import string
 import time
 
 parser = argparse.ArgumentParser(description="This program creates a Site-to-site IPSec VPN")
-parser.add_argument("--compartment-id", "-c", help="The compartment in which the VPN will be created, specified by its OCID")
+parser.add_argument("--compartment-name", "-c", help="The compartment in which the VPN will be created, specified by its name")
+parser.add_argument("--compartment-id", "-C", help="The compartment in which the VPN will be created, specified by its OCID")
 parser.add_argument("--cpe-ip", "-e", help="The IP of the CPE object")
 parser.add_argument("--cpe-id", "-E", help="The OCID of the CPE object")
 parser.add_argument("--best-practices", "-d", action="store_true", help="Use Oracle-suggested set of options for Phase 1 and Phase 2 configuration")
@@ -26,6 +27,7 @@ parser.add_argument("--outside-interface", "-t", action="append", help="The IP a
 
 args = parser.parse_args()
 
+compartmentName = args.compartment_name
 compartmentOCID = args.compartment_id
 cpeIP = args.cpe_ip
 cpeOCID = args.cpe_id
@@ -52,6 +54,24 @@ else:
 def fatalExit(message) -> None:
     print(f"FATAL: {message}")
     sys.exit(1)
+
+def compartmentOCIDByName(compartmentName):
+    compartments = oci.pagination.list_call_get_all_results(
+        iam_client.list_compartments,
+        tenancyOCID,
+        compartment_id_in_subtree=True
+    ).data
+    for compartment in compartments:
+        if compartment.name == compartmentName:
+            return compartment.id
+    
+    return None
+
+if not compartmentOCID and compartmentName:
+    compartmentOCID = compartmentOCIDByName(compartmentName)
+
+if not compartmentOCID:
+    fatalExit("please provide a compartment\n  Use either -C or -c")
 
 core_client = oci.core.VirtualNetworkClient(oci.config.from_file())
 
@@ -94,21 +114,25 @@ else:
     fatalExit("DRG not specified.\n  Use either -G or -g")
 
 #Get the OCID of the CPE
+network_client = oci.core.VirtualNetworkClient(oci.config.from_file())
+cpeList = network_client.list_cpes(compartment_id=compartmentOCID)
 if not cpeOCID and cpeIP:
-    network_client = oci.core.VirtualNetworkClient(oci.config.from_file())
-    cpeList = network_client.list_cpes(compartment_id=compartmentOCID)
     for cpe in cpeList.data:
         if cpe.ip_address == cpeIP:
             cpeOCID = cpe.id
             break
     else:
         fatalExit(f"No CPE with IP {cpeIP} found in the specified compartment")
-elif cpeOCID:
-    pass
 else:
     fatalExit("CPE not specified.\n  Use either -E or -e")
 
-
+if not cpeIP:
+    for cpe in cpeList.data:
+        if cpe.id == cpeOCID:
+            cpeIP == cpe.ip_address
+            break
+        else:
+            pass
 
 # Make static routes required or automatically populated
 if not ipsecRoutes:
@@ -458,17 +482,36 @@ else:
 # Secret
 # IKE Version
 
-cpeIP = pass
+tunnels = network_client.list_ip_sec_connection_tunnels(ipsc_id = ipsecOCID).data
+tunnelOCIDs = [tunnel.id for tunnel in tunnels]
+
+def getTunnelIP(ipsecOCID, tunnelOCID):
+    tunnelNamesAndIP = {tunnels[0].display_name: tunnels[0].vpn_ip, tunnels[1].display_name: tunnels[1].vpn_ip}
+
+
+
 
 print ('Below you can find the configuration file. Please provide this file to the networking team entrusted with configuring the actual Customer-Premises equipment.')
 print ('|-------------------|--------------------------------------------------------------------------------|')
-print(f'|{"CPE IP": <30} | {cpeIP: <70}|')
-print(f'|{"IKE version": <30} | {ikeVer: <70}|')
-print(f'|{"Routing Type": <30} | {routingType.replace("POLICY","STATIC"): <70}|')
-print(f'|{"Shared Secret": <30} | {tunnelSecret: <70}|')
-print(f'|{"Tunnel 1": <100}|')
-print(f'|{"Oracle interface IP": <30} | {insideIP[0]: <70}|')
-print(f'|{"CPE interface IP": <30} | {outsideIP[0]: <70}|')
-print(f'|{"Tunnel 2": <100}|')
-print(f'|{"Oracle interface IP": <30} | {insideIP[1]: <70}|')
-print(f'|{"CPE interface IP": <30} | {outsideIP[1]: <70}|')
+print(f'| {"CPE IP": <30} | {cpeIP: <70}|')
+print(f'| {"IKE version": <30} | {ikeVer: <70}|')
+print(f'| {"Routing Type": <30} | {routingType.replace("POLICY","STATIC"): <70}|')
+print(f'| {"Shared Secret": <30} | {tunnelSecret: <70}|')
+for tun in tunnelNames:
+    print(f'| {tun: <100}|')
+    print(f'| {"Tunnel IP endpoint": <30} | {tunnelNamesAndIP[tun]: <70}|')
+    print(f'| {"Oracle interface IP": <30} | {insideIP[tunnelIndex]: <70}|')
+    print(f'| {"CPE interface IP": <30} | {outsideIP[tunnelIndex]: <70}|')
+    print(f'| {"Phase 1 info": <30} | {" ": <70}|')
+    print(f'| {"  Authentication algorithm": <30} | {"SHA2-384": <70}|')
+    print(f'| {"  Encryption algorithm": <30} | {"AES-256-CBC": <70}|')
+    print(f'| {"  DH Group": <30} | {"group 20 (ECP 384-bit random)": <70}|')
+    print(f'| {"  IKE lifetime": <30} | {"28800 seconds (8 hours)": <70}|')
+    print(f'| {"Phase 2 info": <30} | {" ": <70}|')
+    print(f'| {"  Authentication algorithm": <30} | {"HMAC-SHA-256-128": <70}|')
+    print(f'| {"  Encryption algorithm": <30} | {"AES-256-GCM": <70}|')
+    print(f'| {"  Perfect-forward secrecy": <30} | {"Enabled": <70}|')
+    print(f'| {"  DH Group": <30} | {"group 5 (MODP 1536-bit)": <70}|')
+    print(f'| {"  IPSec lifetime": <30} | {"3600 seconds (1 hour)": <70}|')
+print ('======================================================================================================')
+
