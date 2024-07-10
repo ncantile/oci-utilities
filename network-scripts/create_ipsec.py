@@ -21,8 +21,8 @@ parser.add_argument("--policy", action="store_true", help="Use tunnels configure
 parser.add_argument("--bgp", action="store_true", help="Use tunnels configured with dynamic routing")
 parser.add_argument("--ike", "-i", default="2", choices=["1", "2"], help="The IKE version of the tunnels. Defaults to IKEv2")
 parser.add_argument("--asn", help="The customer ASN")
-parser.add_argument("--inside-interface", "-T", action="append", help="The IP addresses for the OCI end of the inside tunnels interfaces. Defaults to a /30. Provide two routes by using two -T calls" )
-parser.add_argument("--outside-interface", "-t", action="append", help="The IP addresses for the CPE end of the inside tunnels interfaces. Defaults to a /30. Provide two routes by using two -t calls" )
+parser.add_argument("--inside-interface", "-T", action="append", help="The IP addresses for the OCI end of the inside tunnels interfaces. Must be either /30 or /31. Provide two routes by using two -T calls" )
+parser.add_argument("--outside-interface", "-t", action="append", help="The IP addresses for the CPE end of the inside tunnels interfaces. Must be either /30 or /31. Provide two routes by using two -t calls" )
 
 args = parser.parse_args()
 
@@ -69,6 +69,15 @@ def compartmentOCIDByName(compartmentName):
     
     return None
 
+if len(insideIP) == 0 or len(insideIP) == 2:
+    pass
+else:
+    fatalExit("please provide zero or two inside IPs\n  Use two -T calls or omit the -T option")
+if len(outsideIP) == 0 or len(outsideIP) == 2:
+    pass
+else:
+    fatalExit("please provide zero or two inside IPs\n  Use two -t calls or omit the -t option")
+
 if not compartmentOCID and compartmentName:
     compartmentOCID = compartmentOCIDByName(compartmentName)
 
@@ -90,10 +99,10 @@ if isBGP:
     if not asn:
         fatalExit("the customer ASN must be specified\n  Use --asn")
     elif len(insideIP) != 2 and len(outsideIP) != 2:
-        print("INFO: using automatic inside IPs")
         insideIP = ["10.0.1.2/30", "10.0.2.2/30"]
-        print("INFO: using automatic outside IPs")
         outsideIP = ["10.0.1.1/30", "10.0.2.1/30"]
+        print("INFO: using default inside IPs:", *insideIP)
+        print("INFO: using default outside IPs:", *outsideIP)
 
 #create logic:
 #Get the OCID of the DRG
@@ -344,7 +353,7 @@ elif isBGP:
                         dpd_timeout_in_sec=20))]))
     print(f"Creation of IPSec {ipsecName} requested, provisioning...")
 
-time.sleep(30)
+time.sleep(25)
 
 ipsecOCID = create_ip_sec_connection_response.data.id
 ipsecLifecycle = network_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
