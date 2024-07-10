@@ -1,4 +1,4 @@
-tunnelNames = ["T1-FakeVPN", "T2-FakeVPN"]
+tunnelNames = ["IPSec-Tunnel1", "IPSec-Tunnel2"]
 cpeIP = '10.10.10.10'
 ikeVer = 'IKEv2'
 routingType = 'POLICY'
