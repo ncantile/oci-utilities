@@ -51,6 +51,9 @@ if not args.outside_interface:
 else:
     outsideIP = args.outside_interface
 
+iam_client = oci.identity.IdentityClient(config)
+network_client = oci.core.VirtualNetworkClient(oci.config.from_file())
+
 def fatalExit(message) -> None:
     print(f"FATAL: {message}")
     sys.exit(1)
@@ -72,8 +75,6 @@ if not compartmentOCID and compartmentName:
 
 if not compartmentOCID:
     fatalExit("please provide a compartment\n  Use either -C or -c")
-
-core_client = oci.core.VirtualNetworkClient(oci.config.from_file())
 
 if not ipsecName:
     fatalExit("please provide a name for the IPSec connection\n  Use --name")
@@ -159,7 +160,7 @@ tunnelSecret = "".join(random.choices(string.ascii_uppercase + string.ascii_lowe
 
 if isBestPractices:
     if isStatic:
-        create_ip_sec_connection_response = core_client.create_ip_sec_connection(
+        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
                 compartment_id=compartmentOCID,
                 cpe_id=cpeOCID,
@@ -217,7 +218,7 @@ if isBestPractices:
                             dpd_timeout_in_sec=20))]))
         print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isPolicy:
-        create_ip_sec_connection_response = core_client.create_ip_sec_connection(
+        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
                 compartment_id=compartmentOCID,
                 cpe_id=cpeOCID,
@@ -281,7 +282,7 @@ if isBestPractices:
                             dpd_timeout_in_sec=20))]))
         print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isBGP:
-        create_ip_sec_connection_response = core_client.create_ip_sec_connection(
+        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
                 compartment_id=compartmentOCID,
                 cpe_id=cpeOCID,
@@ -348,7 +349,7 @@ if isBestPractices:
         print(f"Creation of IPSec {ipsecName} requested, provisioning...")
 else:
     if isStatic:
-        create_ip_sec_connection_response = core_client.create_ip_sec_connection(
+        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
                 compartment_id=compartmentOCID,
                 cpe_id=cpeOCID,
@@ -380,7 +381,7 @@ else:
                             dpd_timeout_in_sec=20))]))
         print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isPolicy:
-        create_ip_sec_connection_response = core_client.create_ip_sec_connection(
+        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
                 compartment_id=compartmentOCID,
                 cpe_id=cpeOCID,
@@ -418,7 +419,7 @@ else:
                             dpd_timeout_in_sec=20))]))
         print(f"Creation of IPSec {ipsecName} requested, provisioning...")
     elif isBGP:
-        create_ip_sec_connection_response = core_client.create_ip_sec_connection(
+        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
             create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
                 compartment_id=compartmentOCID,
                 cpe_id=cpeOCID,
@@ -461,7 +462,7 @@ else:
 time.sleep(30)
 
 ipsecOCID = create_ip_sec_connection_response.data.id
-ipsecLifecycle = core_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
+ipsecLifecycle = network_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
 if ipsecLifecycle.upper() == 'AVAILABLE':
     print(f'SUCCESS: IPSec {ipsecName} created.\n  Download the configuration from the OCI console.')
 else:
