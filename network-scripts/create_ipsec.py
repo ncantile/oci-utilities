@@ -1,4 +1,7 @@
 #!/bin/python3
+
+#TODO prompt for user input if some required variables are missing
+
 import oci
 import argparse
 import sys
