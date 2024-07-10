@@ -6,10 +6,6 @@ import random
 import string
 import time
 
-#TODO: Deciso che sarà sempre best practice, rimuovere ogni riferimento
-#TODO: Fallire se --policy e non sono specificate local routes e remote routes
-#Inserire stampa di routes to oci se --policy
-
 parser = argparse.ArgumentParser(description="This program creates a Site-to-site IPSec VPN")
 parser.add_argument("--compartment-name", "-c", help="The compartment in which the VPN will be created, specified by its name")
 parser.add_argument("--compartment-id", "-C", help="The compartment in which the VPN will be created, specified by its OCID")
@@ -35,7 +31,6 @@ compartmentName = args.compartment_name
 compartmentOCID = args.compartment_id
 cpeIP = args.cpe_ip
 cpeOCID = args.cpe_id
-isBestPractices = True
 drgOCID = args.drg_id
 drgName = args.drg_name
 ipsecRoutes = args.route
@@ -94,12 +89,10 @@ if isBGP:
     routingType = "BGP"
     if not asn:
         fatalExit("the customer ASN must be specified\n  Use --asn")
-    elif (len(insideIP) != 2 or len(outsideIP) != 2) and not isBestPractices:
-        fatalExit("for dynamic routing, one IP per tunnel must be specified as inside and outside tunnel interfaces\n  Use two -t and two -T calls")
-    elif len(insideIP) != 2 and len(outsideIP) != 2 and isBestPractices:
-        print("INFO: --best-practices specified, using automatic inside IPs")
+    elif len(insideIP) != 2 and len(outsideIP) != 2:
+        print("INFO: using automatic inside IPs")
         insideIP = ["10.0.1.2/30", "10.0.2.2/30"]
-        print("INFO: --best-practices specified, using automatic outside IPs")
+        print("INFO: using automatic outside IPs")
         outsideIP = ["10.0.1.1/30", "10.0.2.1/30"]
 
 #create logic:
@@ -147,10 +140,10 @@ if not ipsecRoutes:
 # Check if there are both local and remote routes if the IPSec uses policy-based routing
 if isPolicy:
     routingType = "POLICY"
-    if len(ipsecLocalRoutes) > 0 and len(ipsecRoutes) > 0:
-        pass
-    else:
-        fatalExit("both local and remote routes are needed for policy-based routing\n  Use both -r and -R")
+    if len(ipsecLocalRoutes) != 2:
+        fatalExit("local routes must be specified for policy-based routing\n  Use two calls of -R")
+    if len(ipsecRoutes) != 2:
+        fatalExit("remote routes must be specified for policy-based routing\n  Use two calls of -r")
 
 # Check if there is a route if the IPSec uses static routing
 if isStatic:
@@ -162,306 +155,194 @@ tunnelNames = ["T1-" + ipsecName, "T2-" + ipsecName]
 
 tunnelSecret = "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=64))
 
-if isBestPractices:
-    if isStatic:
-        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
-            create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
-                compartment_id=compartmentOCID,
-                cpe_id=cpeOCID,
-                drg_id=drgOCID,
-                static_routes=ipsecRoutes,
-                display_name=ipsecName,
-                tunnel_configuration=[
-                    #Tunnel1
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[0],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        phase_one_config=oci.core.models.PhaseOneConfigDetails(
-                            is_custom_phase_one_config=True,
-                            authentication_algorithm="SHA2_384",
-                            encryption_algorithm="AES_256_CBC",
-                            diffie_helman_group="GROUP20",
-                            lifetime_in_seconds=28800),
-                        phase_two_config=oci.core.models.PhaseTwoConfigDetails(
-                            is_custom_phase_two_config=True,
-                            authentication_algorithm="HMAC_SHA2_256_128",
-                            encryption_algorithm="AES_256_GCM",
-                            lifetime_in_seconds=3600,
-                            is_pfs_enabled=True,
-                            pfs_dh_group="GROUP5"),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20)),
-                    #Tunnel2
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[1],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        phase_one_config=oci.core.models.PhaseOneConfigDetails(
-                            is_custom_phase_one_config=True,
-                            authentication_algorithm="SHA2_384",
-                            encryption_algorithm="AES_256_CBC",
-                            diffie_helman_group="GROUP20",
-                            lifetime_in_seconds=28800),
-                        phase_two_config=oci.core.models.PhaseTwoConfigDetails(
-                            is_custom_phase_two_config=True,
-                            authentication_algorithm="HMAC_SHA2_256_128",
-                            encryption_algorithm="AES_256_GCM",
-                            lifetime_in_seconds=3600,
-                            is_pfs_enabled=True,
-                            pfs_dh_group="GROUP5"),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20))]))
-        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
-    elif isPolicy:
-        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
-            create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
-                compartment_id=compartmentOCID,
-                cpe_id=cpeOCID,
-                drg_id=drgOCID,
-                static_routes=ipsecRoutes,
-                display_name=ipsecName,
-                tunnel_configuration=[
-                    #Tunnel1
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[0],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        phase_one_config=oci.core.models.PhaseOneConfigDetails(
-                            is_custom_phase_one_config=True,
-                            authentication_algorithm="SHA2_384",
-                            encryption_algorithm="AES_256_CBC",
-                            diffie_helman_group="GROUP20",
-                            lifetime_in_seconds=28800),
-                        phase_two_config=oci.core.models.PhaseTwoConfigDetails(
-                            is_custom_phase_two_config=True,
-                            authentication_algorithm="HMAC_SHA2_256_128",
-                            encryption_algorithm="AES_256_GCM",
-                            lifetime_in_seconds=3600,
-                            is_pfs_enabled=True,
-                            pfs_dh_group="GROUP5"),
-                        encryption_domain_config=oci.core.models.CreateIPSecTunnelEncryptionDomainDetails(
-                            oracle_traffic_selector=ipsecLocalRoutes,
-                            cpe_traffic_selector=ipsecRoutes),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20)),
-                    #Tunnel2
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[1],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        phase_one_config=oci.core.models.PhaseOneConfigDetails(
-                            is_custom_phase_one_config=True,
-                            authentication_algorithm="SHA2_384",
-                            encryption_algorithm="AES_256_CBC",
-                            diffie_helman_group="GROUP20",
-                            lifetime_in_seconds=28800),
-                        phase_two_config=oci.core.models.PhaseTwoConfigDetails(
-                            is_custom_phase_two_config=True,
-                            authentication_algorithm="HMAC_SHA2_256_128",
-                            encryption_algorithm="AES_256_GCM",
-                            lifetime_in_seconds=3600,
-                            is_pfs_enabled=True,
-                            pfs_dh_group="GROUP5"),
-                        encryption_domain_config=oci.core.models.CreateIPSecTunnelEncryptionDomainDetails(
-                            oracle_traffic_selector=ipsecLocalRoutes,
-                            cpe_traffic_selector=ipsecRoutes),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20))]))
-        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
-    elif isBGP:
-        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
-            create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
-                compartment_id=compartmentOCID,
-                cpe_id=cpeOCID,
-                drg_id=drgOCID,
-                static_routes=ipsecRoutes,
-                display_name=ipsecName,
-                tunnel_configuration=[
-                    #Tunnel1
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[0],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        bgp_session_config=oci.core.models.CreateIPSecTunnelBgpSessionDetails(
-                            oracle_interface_ip=insideIP[0],
-                            customer_interface_ip=outsideIP[0],
-                            customer_bgp_asn=asn),
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        phase_one_config=oci.core.models.PhaseOneConfigDetails(
-                            is_custom_phase_one_config=True,
-                            authentication_algorithm="SHA2_384",
-                            encryption_algorithm="AES_256_CBC",
-                            diffie_helman_group="GROUP20",
-                            lifetime_in_seconds=28800),
-                        phase_two_config=oci.core.models.PhaseTwoConfigDetails(
-                            is_custom_phase_two_config=True,
-                            authentication_algorithm="HMAC_SHA2_256_128",
-                            encryption_algorithm="AES_256_GCM",
-                            lifetime_in_seconds=3600,
-                            is_pfs_enabled=True,
-                            pfs_dh_group="GROUP5"),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20)),
-                    #Tunnel2
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[1],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        bgp_session_config=oci.core.models.CreateIPSecTunnelBgpSessionDetails(
-                            oracle_interface_ip=insideIP[1],
-                            customer_interface_ip=outsideIP[1],
-                            customer_bgp_asn=asn),
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        phase_one_config=oci.core.models.PhaseOneConfigDetails(
-                            is_custom_phase_one_config=True,
-                            authentication_algorithm="SHA2_384",
-                            encryption_algorithm="AES_256_CBC",
-                            diffie_helman_group="GROUP20",
-                            lifetime_in_seconds=28800),
-                        phase_two_config=oci.core.models.PhaseTwoConfigDetails(
-                            is_custom_phase_two_config=True,
-                            authentication_algorithm="HMAC_SHA2_256_128",
-                            encryption_algorithm="AES_256_GCM",
-                            lifetime_in_seconds=3600,
-                            is_pfs_enabled=True,
-                            pfs_dh_group="GROUP5"),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20))]))
-        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
-else:
-    if isStatic:
-        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
-            create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
-                compartment_id=compartmentOCID,
-                cpe_id=cpeOCID,
-                drg_id=drgOCID,
-                static_routes=ipsecRoutes,
-                display_name=ipsecName,
-                tunnel_configuration=[
-                    #Tunnel1
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[0],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20)),
-                    #Tunnel2
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[1],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20))]))
-        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
-    elif isPolicy:
-        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
-            create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
-                compartment_id=compartmentOCID,
-                cpe_id=cpeOCID,
-                drg_id=drgOCID,
-                static_routes=ipsecRoutes,
-                display_name=ipsecName,
-                tunnel_configuration=[
-                    #Tunnel1
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[0],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        encryption_domain_config=oci.core.models.CreateIPSecTunnelEncryptionDomainDetails(
-                            oracle_traffic_selector=ipsecLocalRoutes,
-                            cpe_traffic_selector=ipsecRoutes),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20)),
-                    #Tunnel2
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[1],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        encryption_domain_config=oci.core.models.CreateIPSecTunnelEncryptionDomainDetails(
-                            oracle_traffic_selector=ipsecLocalRoutes,
-                            cpe_traffic_selector=ipsecRoutes),
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20))]))
-        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
-    elif isBGP:
-        create_ip_sec_connection_response = network_client.create_ip_sec_connection(
-            create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
-                compartment_id=compartmentOCID,
-                cpe_id=cpeOCID,
-                drg_id=drgOCID,
-                static_routes=ipsecRoutes,
-                display_name=ipsecName,
-                tunnel_configuration=[
-                    #Tunnel1
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[0],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        bgp_session_config=oci.core.models.CreateIPSecTunnelBgpSessionDetails(
-                            oracle_interface_ip=insideIP[0],
-                            customer_interface_ip=outsideIP[0],
-                            customer_bgp_asn=asn),
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20)),
-                    #Tunnel2
-                    oci.core.models.CreateIPSecConnectionTunnelDetails(
-                        display_name=tunnelNames[1],
-                        routing=routingType,
-                        ike_version=ikeVer,
-                        shared_secret=tunnelSecret,
-                        bgp_session_config=oci.core.models.CreateIPSecTunnelBgpSessionDetails(
-                            oracle_interface_ip=insideIP[1],
-                            customer_interface_ip=outsideIP[1],
-                            customer_bgp_asn=asn),
-                        oracle_initiation="INITIATOR_OR_RESPONDER",
-                        nat_translation_enabled="AUTO",
-                        dpd_config=oci.core.models.DpdConfig(
-                            dpd_mode="INITIATE_AND_RESPOND",
-                            dpd_timeout_in_sec=20))]))
-        print(f"Creation of IPSec {ipsecName} requested, provisioning...")
+if isStatic:
+    create_ip_sec_connection_response = network_client.create_ip_sec_connection(
+        create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
+            compartment_id=compartmentOCID,
+            cpe_id=cpeOCID,
+            drg_id=drgOCID,
+            static_routes=ipsecRoutes,
+            display_name=ipsecName,
+            tunnel_configuration=[
+                #Tunnel1
+                oci.core.models.CreateIPSecConnectionTunnelDetails(
+                    display_name=tunnelNames[0],
+                    routing=routingType,
+                    ike_version=ikeVer,
+                    shared_secret=tunnelSecret,
+                    oracle_initiation="INITIATOR_OR_RESPONDER",
+                    nat_translation_enabled="AUTO",
+                    phase_one_config=oci.core.models.PhaseOneConfigDetails(
+                        is_custom_phase_one_config=True,
+                        authentication_algorithm="SHA2_384",
+                        encryption_algorithm="AES_256_CBC",
+                        diffie_helman_group="GROUP20",
+                        lifetime_in_seconds=28800),
+                    phase_two_config=oci.core.models.PhaseTwoConfigDetails(
+                        is_custom_phase_two_config=True,
+                        authentication_algorithm="HMAC_SHA2_256_128",
+                        encryption_algorithm="AES_256_GCM",
+                        lifetime_in_seconds=3600,
+                        is_pfs_enabled=True,
+                        pfs_dh_group="GROUP5"),
+                    dpd_config=oci.core.models.DpdConfig(
+                        dpd_mode="INITIATE_AND_RESPOND",
+                        dpd_timeout_in_sec=20)),
+                #Tunnel2
+                oci.core.models.CreateIPSecConnectionTunnelDetails(
+                    display_name=tunnelNames[1],
+                    routing=routingType,
+                    ike_version=ikeVer,
+                    shared_secret=tunnelSecret,
+                    oracle_initiation="INITIATOR_OR_RESPONDER",
+                    nat_translation_enabled="AUTO",
+                    phase_one_config=oci.core.models.PhaseOneConfigDetails(
+                        is_custom_phase_one_config=True,
+                        authentication_algorithm="SHA2_384",
+                        encryption_algorithm="AES_256_CBC",
+                        diffie_helman_group="GROUP20",
+                        lifetime_in_seconds=28800),
+                    phase_two_config=oci.core.models.PhaseTwoConfigDetails(
+                        is_custom_phase_two_config=True,
+                        authentication_algorithm="HMAC_SHA2_256_128",
+                        encryption_algorithm="AES_256_GCM",
+                        lifetime_in_seconds=3600,
+                        is_pfs_enabled=True,
+                        pfs_dh_group="GROUP5"),
+                    dpd_config=oci.core.models.DpdConfig(
+                        dpd_mode="INITIATE_AND_RESPOND",
+                        dpd_timeout_in_sec=20))]))
+    print(f"Creation of IPSec {ipsecName} requested, provisioning...")
+elif isPolicy:
+    create_ip_sec_connection_response = network_client.create_ip_sec_connection(
+        create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
+            compartment_id=compartmentOCID,
+            cpe_id=cpeOCID,
+            drg_id=drgOCID,
+            static_routes=ipsecRoutes,
+            display_name=ipsecName,
+            tunnel_configuration=[
+                #Tunnel1
+                oci.core.models.CreateIPSecConnectionTunnelDetails(
+                    display_name=tunnelNames[0],
+                    routing=routingType,
+                    ike_version=ikeVer,
+                    shared_secret=tunnelSecret,
+                    oracle_initiation="INITIATOR_OR_RESPONDER",
+                    nat_translation_enabled="AUTO",
+                    phase_one_config=oci.core.models.PhaseOneConfigDetails(
+                        is_custom_phase_one_config=True,
+                        authentication_algorithm="SHA2_384",
+                        encryption_algorithm="AES_256_CBC",
+                        diffie_helman_group="GROUP20",
+                        lifetime_in_seconds=28800),
+                    phase_two_config=oci.core.models.PhaseTwoConfigDetails(
+                        is_custom_phase_two_config=True,
+                        authentication_algorithm="HMAC_SHA2_256_128",
+                        encryption_algorithm="AES_256_GCM",
+                        lifetime_in_seconds=3600,
+                        is_pfs_enabled=True,
+                        pfs_dh_group="GROUP5"),
+                    encryption_domain_config=oci.core.models.CreateIPSecTunnelEncryptionDomainDetails(
+                        oracle_traffic_selector=ipsecLocalRoutes,
+                        cpe_traffic_selector=ipsecRoutes),
+                    dpd_config=oci.core.models.DpdConfig(
+                        dpd_mode="INITIATE_AND_RESPOND",
+                        dpd_timeout_in_sec=20)),
+                #Tunnel2
+                oci.core.models.CreateIPSecConnectionTunnelDetails(
+                    display_name=tunnelNames[1],
+                    routing=routingType,
+                    ike_version=ikeVer,
+                    shared_secret=tunnelSecret,
+                    oracle_initiation="INITIATOR_OR_RESPONDER",
+                    nat_translation_enabled="AUTO",
+                    phase_one_config=oci.core.models.PhaseOneConfigDetails(
+                        is_custom_phase_one_config=True,
+                        authentication_algorithm="SHA2_384",
+                        encryption_algorithm="AES_256_CBC",
+                        diffie_helman_group="GROUP20",
+                        lifetime_in_seconds=28800),
+                    phase_two_config=oci.core.models.PhaseTwoConfigDetails(
+                        is_custom_phase_two_config=True,
+                        authentication_algorithm="HMAC_SHA2_256_128",
+                        encryption_algorithm="AES_256_GCM",
+                        lifetime_in_seconds=3600,
+                        is_pfs_enabled=True,
+                        pfs_dh_group="GROUP5"),
+                    encryption_domain_config=oci.core.models.CreateIPSecTunnelEncryptionDomainDetails(
+                        oracle_traffic_selector=ipsecLocalRoutes,
+                        cpe_traffic_selector=ipsecRoutes),
+                    dpd_config=oci.core.models.DpdConfig(
+                        dpd_mode="INITIATE_AND_RESPOND",
+                        dpd_timeout_in_sec=20))]))
+    print(f"Creation of IPSec {ipsecName} requested, provisioning...")
+elif isBGP:
+    create_ip_sec_connection_response = network_client.create_ip_sec_connection(
+        create_ip_sec_connection_details=oci.core.models.CreateIPSecConnectionDetails(
+            compartment_id=compartmentOCID,
+            cpe_id=cpeOCID,
+            drg_id=drgOCID,
+            static_routes=ipsecRoutes,
+            display_name=ipsecName,
+            tunnel_configuration=[
+                #Tunnel1
+                oci.core.models.CreateIPSecConnectionTunnelDetails(
+                    display_name=tunnelNames[0],
+                    routing=routingType,
+                    ike_version=ikeVer,
+                    shared_secret=tunnelSecret,
+                    bgp_session_config=oci.core.models.CreateIPSecTunnelBgpSessionDetails(
+                        oracle_interface_ip=insideIP[0],
+                        customer_interface_ip=outsideIP[0],
+                        customer_bgp_asn=asn),
+                    oracle_initiation="INITIATOR_OR_RESPONDER",
+                    nat_translation_enabled="AUTO",
+                    phase_one_config=oci.core.models.PhaseOneConfigDetails(
+                        is_custom_phase_one_config=True,
+                        authentication_algorithm="SHA2_384",
+                        encryption_algorithm="AES_256_CBC",
+                        diffie_helman_group="GROUP20",
+                        lifetime_in_seconds=28800),
+                    phase_two_config=oci.core.models.PhaseTwoConfigDetails(
+                        is_custom_phase_two_config=True,
+                        authentication_algorithm="HMAC_SHA2_256_128",
+                        encryption_algorithm="AES_256_GCM",
+                        lifetime_in_seconds=3600,
+                        is_pfs_enabled=True,
+                        pfs_dh_group="GROUP5"),
+                    dpd_config=oci.core.models.DpdConfig(
+                        dpd_mode="INITIATE_AND_RESPOND",
+                        dpd_timeout_in_sec=20)),
+                #Tunnel2
+                oci.core.models.CreateIPSecConnectionTunnelDetails(
+                    display_name=tunnelNames[1],
+                    routing=routingType,
+                    ike_version=ikeVer,
+                    shared_secret=tunnelSecret,
+                    bgp_session_config=oci.core.models.CreateIPSecTunnelBgpSessionDetails(
+                        oracle_interface_ip=insideIP[1],
+                        customer_interface_ip=outsideIP[1],
+                        customer_bgp_asn=asn),
+                    oracle_initiation="INITIATOR_OR_RESPONDER",
+                    nat_translation_enabled="AUTO",
+                    phase_one_config=oci.core.models.PhaseOneConfigDetails(
+                        is_custom_phase_one_config=True,
+                        authentication_algorithm="SHA2_384",
+                        encryption_algorithm="AES_256_CBC",
+                        diffie_helman_group="GROUP20",
+                        lifetime_in_seconds=28800),
+                    phase_two_config=oci.core.models.PhaseTwoConfigDetails(
+                        is_custom_phase_two_config=True,
+                        authentication_algorithm="HMAC_SHA2_256_128",
+                        encryption_algorithm="AES_256_GCM",
+                        lifetime_in_seconds=3600,
+                        is_pfs_enabled=True,
+                        pfs_dh_group="GROUP5"),
+                    dpd_config=oci.core.models.DpdConfig(
+                        dpd_mode="INITIATE_AND_RESPOND",
+                        dpd_timeout_in_sec=20))]))
+    print(f"Creation of IPSec {ipsecName} requested, provisioning...")
 
 time.sleep(30)
 
@@ -483,11 +364,14 @@ print('|--------------------------------|---------------------------------------
 print(f'| {"CPE IP": <30} | {cpeIP: <70}|')
 print(f'| {"IKE version": <30} | {ikeVer: <70}|')
 print(f'| {"Routing Type": <30} | {routingType.replace("POLICY","STATIC"): <70}|')
-print(f'| {"Shared Secret": <30} | {tunnelSecret: <70}|')
+if ipsecLocalRoutes:
+    for elem in ipsecLocalRoutes:
+        print(f'| {"OCI-advertised route": <30} | {elem: <70}|')
 for tun in tunnelNames:
     tunnelIndex = 0
     print(f'| {tun: <103}|')
     print(f'| {"  Tunnel IP endpoint": <30} | {tunnelNamesAndIP[tun]: <70}|')
+    print(f'| {"Shared Secret": <30} | {tunnelSecret: <70}|')
     if len(insideIP) > 0:
         print(f'| {"  Oracle interface IP": <30} | {insideIP[tunnelIndex]: <70}|')
     if len(outsideIP) > 0:
