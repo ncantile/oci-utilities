@@ -81,6 +81,9 @@ if len(outsideIP) == 0 or len(outsideIP) == 2:
 else:
     fatalExit("please provide zero or two inside IPs\n  Use two -t calls or omit the -t option")
 
+if not compartmentName and not compartmentOCID:
+    compartmentName = input('INPUT REQUIRED! Please provide the name of the compartment: ')
+
 if not compartmentOCID and compartmentName:
     compartmentOCID = compartmentOCIDByName(compartmentName)
 
@@ -88,29 +91,38 @@ if not compartmentOCID:
     fatalExit("please provide a compartment\n  Use either -C or -c")
 
 if not ipsecName:
-    fatalExit("please provide a name for the IPSec connection\n  Use --name")
+    ipsecName = input('INPUT REQUIRED! Please provide the name of the IPSec connection: ')
 
-# Checks if there is one and only one routing policy
+if isStatic + isPolicy + isBGP > 1:
+    print("ERROR: only one routing policy must be specified")
+    isStatic, isPolicy, isBGP = False, False, False
+
 if isStatic + isPolicy + isBGP == 0:
-    fatalExit("a routing policy must be specified\n  Choose one among --bgp, --policy, --static")   
-elif isStatic + isPolicy + isBGP > 1:
-    fatalExit("only one routing policy must be specified\n  Choose only one among --bgp, --policy, --static")
+    req = input('INPUT REQUIRED! Please select the routing type among static(1), policy-based(2), or dynamic BGP(3)\n Please type 1, 2 or 3: ')
+    if req == '1':
+        isStatic = True
+    elif req == '2':
+        isPolicy = True
+    elif req == '3':
+        isBGP = True
+    else:
+        fatalExit("a routing policy must be specified\n  Choose one among --bgp, --policy, --static")   
 
 # Check if two insideIPs and two outsideIPs are specified for dynamic routing. If --best-practices: automatically assign
 if isBGP:
     routingType = "BGP"
     if not asn:
-        fatalExit("the customer ASN must be specified\n  Use --asn")
-    elif len(insideIP) != 2 and len(outsideIP) != 2:
+        asn = input("INPUT REQUIRED! Please provide the Autonomous System Number (ASN) of the CPE: ")
+    if len(insideIP) != 2 and len(outsideIP) != 2:
         insideIP = ["10.0.1.2/30", "10.0.2.2/30"]
         outsideIP = ["10.0.1.1/30", "10.0.2.1/30"]
         print("INFO: using default inside IPs:", *insideIP)
         print("INFO: using default outside IPs:", *outsideIP)
 
-#create logic:
-#Get the OCID of the DRG
+if not drgOCID and not drgName:
+    drgName = input("INPUT REQUIRED! Please provide the name of the DRG: ")
+
 if not drgOCID and drgName:
-    network_client = oci.core.VirtualNetworkClient(oci.config.from_file())
     drgList = network_client.list_drgs(compartment_id=compartmentOCID)
     for drg in drgList.data:
         if drg.display_name == drgName:
@@ -120,11 +132,10 @@ if not drgOCID and drgName:
         fatalExit(f"{drgName} not found in the specified compartment")
 elif drgOCID:
     pass
-else:
-    fatalExit("DRG not specified.\n  Use either -G or -g")
 
-#Get the OCID of the CPE
-network_client = oci.core.VirtualNetworkClient(oci.config.from_file())
+if not cpeIP and not cpeOCID:
+    cpeIP = input("INPUT REQUIRED! Please provide the IP address of the CPE: ")
+
 cpeList = network_client.list_cpes(compartment_id=compartmentOCID)
 if not cpeOCID and cpeIP:
     for cpe in cpeList.data:
@@ -133,8 +144,6 @@ if not cpeOCID and cpeIP:
             break
     else:
         fatalExit(f"No CPE with IP {cpeIP} found in the specified compartment")
-else:
-    fatalExit("CPE not specified.\n  Use either -E or -e")
 
 if not cpeIP:
     for cpe in cpeList.data:
@@ -146,22 +155,43 @@ if not cpeIP:
 
 # Make static routes required or automatically populated
 if not ipsecRoutes:
-    print("WARNING: no routes provided to on-premise: automatically assigning fake route 1.2.3.4/32")
-    ipsecRoutes = ["1.2.3.4/32"]
+    ipsecRoutes = []
+    req = input("WARNING: no routes provided to on-premise: assign fake route 1.2.3.4/32? (y/n): ")
+    if req.lower() == 'y':
+        ipsecRoutes = ["1.2.3.4/32"]
+        print("WARNING: no routes provided to on-premise: automatically assigning fake route 1.2.3.4/32")
+    elif req.lower() == 'n':
+        ipsecRoutes = []
+        anotherRoute = 'y'
+        ipsecRoute = input("INPUT REQUIRED! Please provide a route to onpremise using CIDR notation: ")
+        ipsecRoutes.append(ipsecRoute)
+        while anotherRoute == 'y':
+            anotherRoute = input("Do you want to provide another route to onpremise? (y/n): ")
+            if anotherRoute == 'n':
+                break
+            else:
+                req = input("INPUT REQUIRED! Please provide a route to onpremise using CIDR notation: ")
+                ipsecRoutes.append(req)
 
-# Check if there are both local and remote routes if the IPSec uses policy-based routing
 if isPolicy:
     routingType = "POLICY"
-    if len(ipsecLocalRoutes) != 2:
-        fatalExit("local routes must be specified for policy-based routing\n  Use two calls of -R")
-    if len(ipsecRoutes) != 2:
-        fatalExit("remote routes must be specified for policy-based routing\n  Use two calls of -r")
+    if not ipsecLocalRoutes:
+        anotherRoute = 'y'
+        ipsecLocalRoutes = []
+        ipsecLocalRoutes.append(input("INPUT REQUIRED! Please provide a local CIDR block: "))
+        while anotherRoute == 'y':
+            anotherRoute = input("Do you want to provide another local CIDR block? (y/n): ")
+            if anotherRoute == 'n':
+                break
+            else:
+                req = input("INPUT REQUIRED! Please provide a local CIDR block: ")
+                ipsecRoutes.append(req)
+    #Check if there are more encryption domains if policy
+    if len(ipsecLocalRoutes) + len(ipsecRoutes) == 2:
+        fatalExit("Please provide multiple enryption domains (at least three CIDRs among local routes and onpremise routes).")
 
-# Check if there is a route if the IPSec uses static routing
 if isStatic:
     routingType = "STATIC"
-    if len(ipsecRoutes) == 0:
-        fatalExit("specify at least a route\n  Use -r")
 
 tunnelNames = ["T1-" + ipsecName, "T2-" + ipsecName]
 
