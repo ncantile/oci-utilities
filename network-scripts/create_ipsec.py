@@ -6,12 +6,15 @@ import random
 import string
 import time
 
+#TODO: Deciso che sarà sempre best practice, rimuovere ogni riferimento
+#TODO: Fallire se --policy e non sono specificate local routes e remote routes
+#Inserire stampa di routes to oci se --policy
+
 parser = argparse.ArgumentParser(description="This program creates a Site-to-site IPSec VPN")
 parser.add_argument("--compartment-name", "-c", help="The compartment in which the VPN will be created, specified by its name")
 parser.add_argument("--compartment-id", "-C", help="The compartment in which the VPN will be created, specified by its OCID")
 parser.add_argument("--cpe-ip", "-e", help="The IP of the CPE object")
 parser.add_argument("--cpe-id", "-E", help="The OCID of the CPE object")
-parser.add_argument("--best-practices", "-d", action="store_true", help="Use Oracle-suggested set of options for Phase 1 and Phase 2 configuration")
 parser.add_argument("--drg-id", "-G", help="The OCID of the Dynamic Routing Gateway")
 parser.add_argument("--drg-name", "-g", help="The name of the Dynamic Routing Gateway")
 parser.add_argument("--route", "-r", action="append", help="The remote static route used for the IPSec connection. Provide multiple routes by using multiple -r calls")
@@ -27,11 +30,12 @@ parser.add_argument("--outside-interface", "-t", action="append", help="The IP a
 
 args = parser.parse_args()
 
+tenancyOCID = oci.config.from_file()["tenancy"]
 compartmentName = args.compartment_name
 compartmentOCID = args.compartment_id
 cpeIP = args.cpe_ip
 cpeOCID = args.cpe_id
-isBestPractices = args.best_practices
+isBestPractices = True
 drgOCID = args.drg_id
 drgName = args.drg_name
 ipsecRoutes = args.route
@@ -51,7 +55,7 @@ if not args.outside_interface:
 else:
     outsideIP = args.outside_interface
 
-iam_client = oci.identity.IdentityClient(config)
+iam_client = oci.identity.IdentityClient(oci.config.from_file())
 network_client = oci.core.VirtualNetworkClient(oci.config.from_file())
 
 def fatalExit(message) -> None:
@@ -464,24 +468,10 @@ time.sleep(30)
 ipsecOCID = create_ip_sec_connection_response.data.id
 ipsecLifecycle = network_client.get_ip_sec_connection(ipsecOCID).data.lifecycle_state
 if ipsecLifecycle.upper() == 'AVAILABLE':
-    print(f'SUCCESS: IPSec {ipsecName} created.\n  Download the configuration from the OCI console.')
+    print(f'SUCCESS: IPSec {ipsecName} created.')
 else:
     print(f'WARNING: There might be some problems creating the IPSec, please check manually.')
     sys.exit(1)
-
-
-
-#Print:
-# CPE Name/IP
-# DRG Name
-# Tunnel1 Name/IP
-## Tunnel1 Phase1 Info
-## Tunnel1 Phase2 Info
-# Tunnel2 Name/IP
-## Tunnel2 Phase1 Info
-## Tunnel2 Phase2 Info
-# Secret
-# IKE Version
 
 tunnels = network_client.list_ip_sec_connection_tunnels(ipsc_id = ipsecOCID).data
 tunnelOCIDs = [tunnel.id for tunnel in tunnels]
