@@ -4,6 +4,7 @@ ikeVer = 'IKEv2'
 routingType = 'POLICY'
 tunnelSecret = 'eifeiafhidkafiwejs7384u83rfhuehd8iuu82u92hdi'
 tunnelNamesAndIP = {'IPSec-Tunnel2': '193.122.0.91', 'IPSec-Tunnel1': '158.101.179.221'}
+tunnelNamesAndIP = dict(sorted(tunnelNamesAndIP.items()))
 insideIP = ['1.1.1.1', '2.2.2.2']
 outsideIP = []
 
@@ -14,6 +15,7 @@ print(f'| {"IKE version": <30} | {ikeVer: <70}|')
 print(f'| {"Routing Type": <30} | {routingType.replace("POLICY","STATIC"): <70}|')
 print(f'| {"Shared Secret": <30} | {tunnelSecret: <70}|')
 for tun in tunnelNames:
+    tunnelIndex = 0
     print(f'| {tun: <100}|')
     print(f'| {"Tunnel IP endpoint": <30} | {tunnelNamesAndIP[tun]: <70}|')
     if len(insideIP) > 0:
@@ -31,4 +33,5 @@ for tun in tunnelNames:
     print(f'| {"  Perfect-forward secrecy": <30} | {"Enabled": <70}|')
     print(f'| {"  DH Group": <30} | {"group 5 (MODP 1536-bit)": <70}|')
     print(f'| {"  IPSec lifetime": <30} | {"3600 seconds (1 hour)": <70}|')
+    tunnelIndex += 1
 print ('======================================================================================================')
