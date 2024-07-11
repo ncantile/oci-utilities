@@ -4,12 +4,66 @@ import oci
 #Create the identity client
 config = oci.config.from_file()
 iam_client = oci.identity.IdentityClient(config)
+storage_client = oci.core.BlockstorageClient(config)
+compute_client = oci.core.ComputeClient(config)
 tenancyOCID = config["tenancy"]
+
+def getCompartments():
+	compartmentList = []
+	list_compartments_response = iam_client.list_compartments(
+		compartment_id=tenancyOCID,
+		compartment_id_in_subtree=True)
+	for compartment in list_compartments_response.data:
+		compartmentDict = {}
+		compartmentDict["ocid"] = compartment.id
+		compartmentDict["name"] = compartment.name
+		compartmentList.append(compartmentDict)
+	return compartmentList
+
+def getAvailabilityDomains():
+	availabilityDomainList = []
+	list_availability_domains_response = iam_client.list_availability_domains(
+    compartment_id=tenancyOCID)
+	for ad in list_availability_domains_response.data:
+		availabilityDomainDict = {}
+		availabilityDomainDict["ocid"] = ad.id
+		availabilityDomainDict["name"] = ad.name
+		availabilityDomainList.append(availabilityDomainDict)
+	return availabilityDomainList
+
+def getBootVolumes():
+	bootVolumeList = []
+	for compartment in getCompartments():
+		for ad in getAvailabilityDomains():
+			list_boot_volumes_response = storage_client.list_boot_volumes(
+				availability_domain = ad["name"],
+				compartment_id = compartment["ocid"])
+			for bv in list_boot_volumes_response.data:
+				bootVolumeDict = {}
+				bootVolumeDict["ocid"] = bv.id
+				bootVolumeDict["name"] = bv.display_name
+				bootVolumeList.append(bootVolumeDict)
+	return bootVolumeList
+
+def getBootVolumesAttachments():
+	bootVolumeAttachmentList = []
+	for compartment in getCompartments():
+		for ad in getAvailabilityDomains():
+			list_boot_volume_attachments_response = compute_client.list_boot_volume_attachments(
+		   	compartment_id=compartment["ocid"],
+		   	availability_domain = ad["name"])
+			for bvAtt in list_boot_volume_attachments_response.data:
+				bootVolumeAttachmentDict = {}
+				bootVolumeAttachmentDict["instance_ocid"] = bvAtt.instance_id
+				bootVolumeAttachmentDict["bv_ocid"] = bvAtt.boot_volume_id
+				bootVolumeAttachmentList.append(bootVolumeAttachmentDict)
+	return bootVolumeAttachmentList
+
+#Write logic to find the name of volumes not attached.
 
 def getAllDomains():
 	"""
-	This function retrieves all the IAM Domains in the tenancy.
-	It returns a list with the OCIDs of all the domains.
+
 	"""
 	domainList = []
 	list_domains_response = iam_client.list_domains(
@@ -17,13 +71,16 @@ def getAllDomains():
 		lifecycle_state = "ACTIVE")
 	for domain in list_domains_response.data:
 		domainDict = {}
-		domainDict["id"] = domain.id
+		domainDict["ocid"] = domain.id
 		domainDict["name"] = domain.display_name
 		domainList.append(domainDict)
 	return domainList
 
 
 def getUsersInDomain(domainOCID):
+	"""
+
+	"""
 	usersOCIDList = []
 	list_users_response = iam_client.list_users(
 		compartment_id = tenancyOCID,
