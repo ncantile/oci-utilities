@@ -44,33 +44,33 @@ def getAvailabilityDomains():
 		availabilityDomainList.append(availabilityDomainDict)
 	return availabilityDomainList
 
-def getBootVolumes():
-	bootVolumeList = []
+def getBlockVolumes():
+	blockVolumeList = []
 	for compartment in getCompartments():
 		for ad in getAvailabilityDomains():
-			list_boot_volumes_response = storage_client.list_boot_volumes(
+			list_block_volumes_response = storage_client.list_volumes(
 				availability_domain = ad["name"],
 				compartment_id = compartment["ocid"])
-			for bv in list_boot_volumes_response.data:
-				bootVolumeDict = {}
-				bootVolumeDict["ocid"] = bv.id
-				bootVolumeDict["name"] = bv.display_name
-				bootVolumeList.append(bootVolumeDict)
-	return bootVolumeList
+			for vol in list_block_volumes_response.data:
+				blockVolumeDict = {}
+				blockVolumeDict["ocid"] = vol.id
+				blockVolumeDict["name"] = vol.display_name
+				blockVolumeList.append(blockVolumeDict)
+	return blockVolumeList
 
-def getBootVolumesAttachments():
-	bootVolumeAttachmentList = []
+def getBlockVolumesAttachments():
+	blockVolumeAttachmentList = []
 	for compartment in getCompartments():
 		for ad in getAvailabilityDomains():
-			list_boot_volume_attachments_response = compute_client.list_boot_volume_attachments(
+			list_block_volume_attachments_response = compute_client.list_volume_attachments(
 		   	compartment_id=compartment["ocid"],
 		   	availability_domain = ad["name"])
-			for bvAtt in list_boot_volume_attachments_response.data:
-				bootVolumeAttachmentDict = {}
-				bootVolumeAttachmentDict["instance_ocid"] = bvAtt.instance_id
-				bootVolumeAttachmentDict["bv_ocid"] = bvAtt.boot_volume_id
-				bootVolumeAttachmentList.append(bootVolumeAttachmentDict)
-	return bootVolumeAttachmentList
+			for volAtt in list_block_volume_attachments_response.data:
+				blockVolumeAttachmentDict = {}
+				blockVolumeAttachmentDict["instance_ocid"] = volAtt.instance_id
+				blockVolumeAttachmentDict["vol_ocid"] = volAtt.volume_id
+				blockVolumeAttachmentList.append(blockVolumeAttachmentDict)
+	return blockVolumeAttachmentList
 
 def getUnattachedVolumes(allVolumes, attachedVolumes):
 	unattachedVolumes = []
@@ -86,18 +86,18 @@ def extractFromDict(inputList, key):
 	res = [elem[key] for elem in inputList]
 	return res
 
-allVolumes = getBootVolumes()
-attachedVolumes = getBootVolumesAttachments()
-unattachedVolumesList = getUnattachedVolumes(extractFromDict(allVolumes, "ocid"), extractFromDict(attachedVolumes, "bv_ocid"))
+allVolumes = getBlockVolumes()
+attachedVolumes = getBlockVolumesAttachments()
+unattachedVolumesList = getUnattachedVolumes(extractFromDict(allVolumes, "ocid"), extractFromDict(attachedVolumes, "vol_ocid"))
 
 unattachedVolumes = []
 for d in allVolumes:
 	if d["ocid"] in unattachedVolumesList:
 		unattachedVolumes.append(d)
 
-print('The following boot volumes are not attached to any instance:\n')
+print('The following block volumes are not attached to any instance:\n')
 printTable(unattachedVolumes)
 print('\nMore info:')
 for elem in unattachedVolumes:
-	print(f'https://cloud.oracle.com/block-storage/boot-volumes/{elem["ocid"]}')
+	print(f'https://cloud.oracle.com/block-storage/volumes/{elem["ocid"]}')
 print('\n')
