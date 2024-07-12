@@ -124,3 +124,5 @@ def getUsersInDomain(domainOCID):
 	return usersOCIDList
 
 printTable(unattachedVolumes)
+
+#to check if user in domain: get_domain_response.data.display_name.lower() in get_user_response.data.name.lower()
