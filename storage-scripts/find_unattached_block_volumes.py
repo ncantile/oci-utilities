@@ -100,4 +100,3 @@ printTable(unattachedVolumes)
 print('\nMore info:')
 for elem in unattachedVolumes:
 	print(f'https://cloud.oracle.com/block-storage/volumes/{elem["ocid"]}')
-print('\n')
