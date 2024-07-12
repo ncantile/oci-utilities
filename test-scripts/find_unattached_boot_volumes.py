@@ -8,6 +8,19 @@ storage_client = oci.core.BlockstorageClient(config)
 compute_client = oci.core.ComputeClient(config)
 tenancyOCID = config["tenancy"]
 
+def printTable(myDict, colList=None):
+	""" Pretty print a list of dictionaries (myDict) as a dynamically sized table.
+	If column names (colList) aren't specified, they will show in random order.
+	Author: Thierry Husson - Use it as you want but don't blame me.
+	"""
+	if not colList: colList = list(myDict[0].keys() if myDict else [])
+	myList = [colList] # 1st row = header
+	for item in myDict: myList.append([str(item[col] if item[col] is not None else '') for col in colList])
+	colSize = [max(map(len,col)) for col in zip(*myList)]
+	formatStr = ' | '.join(["{{:<{}}}".format(i) for i in colSize])
+	myList.insert(1, ['-' * i for i in colSize]) # Seperating line
+	for item in myList: print(formatStr.format(*item))
+
 def getCompartments():
 	compartmentList = []
 	list_compartments_response = iam_client.list_compartments(
@@ -59,7 +72,7 @@ def getBootVolumesAttachments():
 				bootVolumeAttachmentList.append(bootVolumeAttachmentDict)
 	return bootVolumeAttachmentList
 
-def getUnattachedVolumes(allVolumes, attachedVolumes, volumeType):
+def getUnattachedVolumes(allVolumes, attachedVolumes):
 	unattachedVolumes = []
 	for vol in allVolumes:
 		if vol not in attachedVolumes:
@@ -73,46 +86,14 @@ def extractFromDict(inputList, key):
 	res = [elem[key] for elem in inputList]
 	return res
 
-getUnattachedVolumes(extractFromDict(getBootVolumes(), "ocid"), extractFromDict(getBootVolumesAttachments(), "ocid"))
+allVolumes = getBootVolumes()
+attachedVolumes = getBootVolumesAttachments()
+unattachedVolumesList = getUnattachedVolumes(extractFromDict(allVolumes, "ocid"), extractFromDict(attachedVolumes, "bv_ocid"))
 
+unattachedVolumes = []
+for d in allVolumes:
+	if d["ocid"] in unattachedVolumesList:
+		unattachedVolumes.append(d)
 
-def getAllDomains():
-	"""
-
-	"""
-	domainList = []
-	list_domains_response = iam_client.list_domains(
-		compartment_id = tenancyOCID,
-		lifecycle_state = "ACTIVE")
-	for domain in list_domains_response.data:
-		domainDict = {}
-		domainDict["ocid"] = domain.id
-		domainDict["name"] = domain.display_name
-		domainList.append(domainDict)
-	return domainList
-
-
-def getUsersInDomain(domainOCID):
-	"""
-
-	"""
-	usersOCIDList = []
-	list_users_response = iam_client.list_users(
-		compartment_id = tenancyOCID,
-		)
-	for user in list_users_response.data:
-		usersOCIDList.append(user.id)
-	return usersOCIDList
-
-def printTable(myDict, colList=None):
-   """ Pretty print a list of dictionaries (myDict) as a dynamically sized table.
-   If column names (colList) aren't specified, they will show in random order.
-   Author: Thierry Husson - Use it as you want but don't blame me.
-   """
-   if not colList: colList = list(myDict[0].keys() if myDict else [])
-   myList = [colList] # 1st row = header
-   for item in myDict: myList.append([str(item[col] if item[col] is not None else '') for col in colList])
-   colSize = [max(map(len,col)) for col in zip(*myList)]
-   formatStr = ' | '.join(["{{:<{}}}".format(i) for i in colSize])
-   myList.insert(1, ['-' * i for i in colSize]) # Seperating line
-   for item in myList: print(formatStr.format(*item))
+print('The following boot volumes are not attached to any instance:\n')
+printTable(unattachedVolumes)
