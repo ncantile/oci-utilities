@@ -6,7 +6,7 @@ COMPARTMENT_NAME="$(oci iam compartment get --compartment-id ${COMPARTMENT} --qu
 filename=${COMPARTMENT_NAME}_extraction_$(date +'%Y%m%d%H%M%S').csv
 
 # Prepare output CSV
-echo "Compartment Name,Compartment OCID,Instance Name,Instance OCID,Image OCID,Operating System,OS Version" > $filename 
+echo "Compartment Name,Compartment OCID,Instance Name,Instance OCID,Image OCID,Operating System,OS Version,Public IP,Private IP" > $filename 
 
 # Get all active compartments
 compartments=$(oci iam compartment list --compartment-id $COMPARTMENT \
@@ -33,7 +33,20 @@ echo "$compartments" | jq -c '.[]' | while read comp; do
     image_info=$(oci compute image get --image-id "$image_ocid" --query 'data' --output json)
     os_name=$(echo "$image_info" | jq -r '.["operating-system"]')
     os_version=$(echo "$image_info" | jq -r '.["operating-system-version"]')
+   
+    # Get info about Private and public IPs
+    VNIC_ID=$(oci compute vnic-attachment list --compartment-id "$comp_id" --instance-id "$inst_ocid" \
+            --query "data[?\"lifecycle-state\"=='ATTACHED'].[\"vnic-id\"] | [0][0]" --raw-output)
 
-    echo "$comp_name,$comp_id,$inst_name,$inst_ocid,$image_ocid,$os_name,$os_version" >> $filename
+    if [[ -n "$VNIC_ID" ]]; then
+      IP_INFO=$(oci network vnic get --vnic-id "$VNIC_ID" --query 'data.{private: "private-ip", public: "public-ip"}' --output json)
+      priv_ip=$(echo "$IP_INFO" | jq -r '.private')
+      pub_ip=$(echo "$IP_INFO" | jq -r '.public')
+    else
+      priv_ip=""
+      pub_ip=""
+    fi
+
+    echo "$comp_name,$comp_id,$inst_name,$inst_ocid,$image_ocid,$os_name,$os_version,$pub_ip,$priv_ip" >> $filename
   done
 done
