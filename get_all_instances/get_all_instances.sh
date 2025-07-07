@@ -1,7 +1,7 @@
 #!/bin/bash
 # Get the name of my tenancy
 COMPARTMENT=$(oci iam user get --user-id "$(oci iam user list --all --query "data[0].id" --raw-output)" --query "data.\"compartment-id\"" --raw-output)
-COMPARTMENT_NAME=$(oci iam compartment get --compartment-id ocid1.tenancy.oc1..aaaaaaaadlawedpk34hwqcqovdend7yzpbkupcvbjvemp4ijtb3xd7frurga  --query data.name --raw-output) 
+COMPARTMENT_NAME="$(oci iam compartment get --compartment-id ${COMPARTMENT} --query data.name --raw-output)"
 # Build output file name
 filename=${COMPARTMENT_NAME}_extraction_$(date +'%Y%m%d%H%M%S').csv
 
