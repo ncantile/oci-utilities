@@ -1,14 +1,23 @@
 import oci
 import json
+import sys
+
+try: 
+	wave = "wave_" + str(sys.argv[1])
+except:
+	wave = input("Insert only the wave number: ")
+	wave = "wave_" + str(wave)
 
 config = oci.config.from_file()
 compute_client = oci.core.ComputeClient(config)
 search_client = oci.resource_search.ResourceSearchClient(config)
 osmh_client = oci.os_management_hub.ManagedInstanceClient(config)
 
-wave = input("Insert only the wave number: ")
-wave = "wave_" + str(wave)
-
+def ocid_to_name(ocid):
+	res = compute_client.get_instance(
+		instance_id = ocid)
+	return res.data.display_name
+	
 print(f"Getting available security updates for all instances in {wave}...")
 
 #Get the OCIDs of all the instances in the wave
@@ -24,6 +33,7 @@ all_updates = {}
 
 #Loop through all instances in wave
 for vm in instances_in_wave:
+	vm_name = ocid_to_name(vm)
 	try:
 		#Windows
 		response = osmh_client.list_managed_instance_available_windows_updates(
@@ -33,7 +43,7 @@ for vm in instances_in_wave:
 		vm_upd_list = []
 		for elem in vm_updates:
 			vm_upd_list.append(elem.name)
-		all_updates[vm] = vm_upd_list
+		all_updates[f"{vm_name} ({vm})"] = vm_upd_list
 	except:
 		try:
 			#Linux
@@ -44,7 +54,7 @@ for vm in instances_in_wave:
 			vm_upd_list = []
 			for elem in vm_updates:
 				vm_upd_list.append(elem.name)
-			all_updates[vm] = vm_upd_list
+			all_updates[f"{vm_name} ({vm})"] = vm_upd_list
 		except:
 			#Instance not registered
 			continue
