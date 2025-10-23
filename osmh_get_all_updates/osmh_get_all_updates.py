@@ -43,7 +43,7 @@ for vm in instances_in_wave:
 		vm_upd_list = []
 		for elem in vm_updates:
 			vm_upd_list.append(elem.name)
-		all_updates[f"{vm_name} ({vm})"] = vm_upd_list
+		all_updates[vm_name] = vm_upd_list
 	except:
 		try:
 			#Linux
@@ -54,7 +54,7 @@ for vm in instances_in_wave:
 			vm_upd_list = []
 			for elem in vm_updates:
 				vm_upd_list.append(elem.name)
-			all_updates[f"{vm_name} ({vm})"] = vm_upd_list
+			all_updates[vm_name] = vm_upd_list
 		except:
 			#Instance not registered
 			continue
