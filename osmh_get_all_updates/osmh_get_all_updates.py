@@ -39,7 +39,7 @@ for vm in instances_in_wave:
 		response = osmh_client.list_managed_instance_available_windows_updates(
 			managed_instance_id = vm,
 			classification_type = ["SECURITY"],
-			limit=999)
+			limit=100)
 		vm_updates = response.data.items
 		vm_upd_list = []
 		for elem in vm_updates:
@@ -48,14 +48,12 @@ for vm in instances_in_wave:
 	except:
 		try:
 			#Linux
-			response = osmh_client.list_managed_instance_updatable_packages(
+			response = oci.pagination.list_call_get_all_results(osmh_client.list_managed_instance_updatable_packages,
 				managed_instance_id = vm,
-			classification_type = ["SECURITY"],
-			limit=999)
-			vm_updates = response.data.items
+			classification_type = ["SECURITY"])
 			vm_upd_list = []
-			for elem in vm_updates:
-				vm_upd_list.append(elem.name)
+			for elem in response.data:
+				vm_upd_list.append(elem.display_name)
 			all_updates[vm_name] = vm_upd_list
 		except:
 			#Instance not registered
