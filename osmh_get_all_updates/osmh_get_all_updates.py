@@ -38,7 +38,8 @@ for vm in instances_in_wave:
 		#Windows
 		response = osmh_client.list_managed_instance_available_windows_updates(
 			managed_instance_id = vm,
-			classification_type = ["SECURITY"])
+			classification_type = ["SECURITY"],
+			limit=999)
 		vm_updates = response.data.items
 		vm_upd_list = []
 		for elem in vm_updates:
@@ -49,7 +50,8 @@ for vm in instances_in_wave:
 			#Linux
 			response = osmh_client.list_managed_instance_updatable_packages(
 				managed_instance_id = vm,
-			classification_type = ["SECURITY"])
+			classification_type = ["SECURITY"],
+			limit=999)
 			vm_updates = response.data.items
 			vm_upd_list = []
 			for elem in vm_updates:
